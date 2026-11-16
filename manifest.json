@@ -1,0 +1,9 @@
+{
+    "name": "ShadowThrottle",
+    "version_number": "0.6.0",
+    "website_url": "",
+    "description": "Up to +60% FPS outside: caches lamp and sun shadows, refreshes far ones rarely and drops shadows of small far objects. Smoother frames, heavy moons stop being heavy. Client-side.",
+    "dependencies": [
+        "BepInEx-BepInExPack-5.4.2100"
+    ]
+}

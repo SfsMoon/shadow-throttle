@@ -1,0 +1,20 @@
+# build output
+bin/
+obj/
+release/
+*.zip
+
+# never commit game / Unity binaries
+*.dll
+*.pdb
+
+# local settings
+*.csproj.user
+.vs/
+.idea/
+*.suo
+
+# icon and the script that draws it
+icon.png
+make_icon*.py
+icon_*.py
