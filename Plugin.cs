@@ -206,7 +206,8 @@ namespace ShadowThrottle
         internal static bool NoHook;
         private bool _fullScanQueued = true;
 
-        internal static void OnLightEnabled(HDAdditionalLightData __instance) => Pending.Add(__instance);
+        // while the mod is off nothing drains Pending, so don't queue; a full scan runs when it is turned back on
+        internal static void OnLightEnabled(HDAdditionalLightData __instance) { if (Plugin.RuntimeOn) Pending.Add(__instance); }
 
         private void Awake()
         {
@@ -243,7 +244,13 @@ namespace ShadowThrottle
 
             float now = Time.unscaledTime;
             _frame++;
-            if (Plugin.RuntimeOn != _lastRuntimeOn) { _lastRuntimeOn = Plugin.RuntimeOn; Plugin.ApplySwitches(); } // also when flipped by LagScope A/B
+            if (Plugin.RuntimeOn != _lastRuntimeOn) // also when flipped by LagScope A/B
+            {
+                _lastRuntimeOn = Plugin.RuntimeOn;
+                Plugin.ApplySwitches();
+                if (Plugin.RuntimeOn) _fullScanQueued = true; // pick up lights enabled while the mod was off
+                else Pending.Clear();
+            }
 
             if (!Plugin.RuntimeOn)
             {
