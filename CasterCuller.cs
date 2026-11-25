@@ -25,6 +25,7 @@ namespace ShadowThrottle
         private static readonly List<float> ScanAt = new List<float> { 0f };   // pending scan times (first one: startup)
         private static float _lastScan = float.NegativeInfinity;
         private static bool _wasOff, _dungeonDone, _landed;
+        private static float _scanBigSize = -1f;   // MediumSize the current list was built with
         private static Vector3 _lastCamPos;
         private static bool _hasCamPos;
         public static int CulledCount;
@@ -61,6 +62,13 @@ namespace ShadowThrottle
             if (_wasOff) { _wasOff = false; QueueScans(now, 0f); }   // objects that appeared while switched off
             WatchRound(now);
             bool due = false;
+            if (_scanBigSize >= 0f && Plugin.MediumSize.Value != _scanBigSize)
+            {
+                // the big/medium border moved: objects left out as "big" may need checks now, start over
+                Off();
+                Casters.Clear(); Known.Clear(); _cursor = 0;
+                due = true;
+            }
             for (int i = ScanAt.Count - 1; i >= 0; i--)
                 if (ScanAt[i] <= now) { ScanAt.RemoveAt(i); due = true; }
             float every = Plugin.CasterRescanSeconds.Value;
@@ -117,6 +125,7 @@ namespace ShadowThrottle
                 return true;
             });
             Known.RemoveWhere(r => r == null);
+            float big = _scanBigSize = Plugin.MediumSize.Value;
             // FindObjectsByType without sorting is the cheap variant of FindObjectsOfType (which sorts by instance id)
             foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
             {
@@ -124,6 +133,9 @@ namespace ShadowThrottle
                 if (!(r is MeshRenderer) && !(r is SkinnedMeshRenderer)) continue;
                 if (r.shadowCastingMode == ShadowCastingMode.Off) continue;
                 Known.Add(r);
+                // big objects (trees, buildings, rocks) are never culled: keep them out of the per-frame slice,
+                // so the slice comes back to the objects that can be culled sooner
+                if (r.bounds.size.magnitude >= big) continue;
                 Casters.Add(new Caster { R = r, Orig = r.shadowCastingMode });
             }
         }
