@@ -21,7 +21,13 @@ namespace ShadowThrottle
         private static readonly HashSet<Renderer> Known = new HashSet<Renderer>();
         private static int _cursor;
         private static float _nextScan;
+        private static Vector3 _lastCamPos;
+        private static bool _hasCamPos;
         public static int CulledCount;
+
+        // camera moved farther than this in one frame (facility entrance, teleport, spectating someone else):
+        // re-check everything at once, otherwise nearby objects would stay shadowless until the slice reaches them
+        private const float CameraJump = 10f;
 
         public static void Rescan() => _nextScan = 0;
 
@@ -37,9 +43,11 @@ namespace ShadowThrottle
             if (Casters.Count == 0) return;
 
             Vector3 camPos = cam.transform.position;
+            bool jumped = _hasCamPos && (camPos - _lastCamPos).sqrMagnitude > CameraJump * CameraJump;
+            _lastCamPos = camPos; _hasCamPos = true;
             float smallSize = Plugin.SmallSize.Value, mediumSize = Plugin.MediumSize.Value;
             float smallD = Plugin.SmallDistance.Value, mediumD = Plugin.MediumDistance.Value;
-            int budget = Mathf.Min(Plugin.CastersPerFrame.Value, Casters.Count);
+            int budget = jumped ? Casters.Count : Mathf.Min(Plugin.CastersPerFrame.Value, Casters.Count);
 
             for (int n = 0; n < budget; n++)
             {
