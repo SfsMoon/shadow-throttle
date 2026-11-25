@@ -121,8 +121,11 @@ namespace ShadowThrottle
             FarInterval = Config.Bind("Schedule", "FarInterval", 8, "Far lights refresh every N frames.");
             MovingEveryFrame = Config.Bind("Schedule", "MovingLightsVanilla", true,
                 "Lights that move (held flashlights, vehicle headlights...) are left vanilla (every frame).");
-            RescanSeconds = Config.Bind("Advanced", "FullRescanSeconds", 30f,
-                "Safety full scan for lights (FindObjectsOfType costs a few ms). New lights are normally picked up instantly via OnEnable.");
+            // renamed from FullRescanSeconds (30): the OnEnable hook made the periodic scan unnecessary, and a new key
+            // makes sure old configs don't keep paying for it
+            RescanSeconds = Config.Bind("Advanced", "PeriodicLightScanSeconds", 0f,
+                "Extra full scan for lights every N seconds (FindObjectsOfType, costs a few ms each time). 0 = off: new lights are " +
+                "picked up through OnEnable, and a full scan still runs on every level load and when the mod is switched on.");
             CachedAtlasSize = Config.Bind("Atlas", "CachedAtlasSize", 4096, new ConfigDescription(
                 "Size of HDRP's cached shadow atlas: more space = more lamps can be cached at full resolution. " +
                 "Memory (32-bit shadows): 2048 = 16 MB, 4096 = 64 MB, 8192 = 256 MB, 16384 = 1 GB (integrated GPUs take it from RAM). " +
@@ -235,7 +238,7 @@ namespace ShadowThrottle
         private readonly List<Entry> _list = new List<Entry>();
         private readonly List<Entry> _candidates = new List<Entry>();
         private readonly Plane[] _planes = new Plane[6];
-        private float _nextScan;
+        private float _lastScan;
         private int _frame;
         private bool _lastRuntimeOn = true;
         private int _cachedCount;
@@ -278,10 +281,11 @@ namespace ShadowThrottle
                 foreach (var hd in Pending) if (hd != null) Register(hd);
                 Pending.Clear();
             }
-            if (_fullScanQueued || now >= _nextScan)
+            float scanEvery = NoHook ? 3f : Plugin.RescanSeconds.Value; // without the hook, scanning is the only way
+            if (_fullScanQueued || (scanEvery > 0f && now >= _lastScan + scanEvery))
             {
                 _fullScanQueued = false;
-                _nextScan = now + (NoHook ? 3f : Plugin.RescanSeconds.Value);
+                _lastScan = now;
                 Rescan();
             }
             if (_capacity != int.MaxValue && now >= _capacityRetryAt) _capacity = int.MaxValue; // try again later
