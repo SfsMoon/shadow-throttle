@@ -36,6 +36,7 @@ namespace ShadowThrottle
         private static float _shipBoostUntil;
         private static Transform _ship;
         private static GameObject _volGo;
+        private static VolumeProfile _volProfile;
         private static string _volKey;
         private static float[] _volSplits;
         private static float _nextScan;
@@ -163,7 +164,7 @@ namespace ShadowThrottle
             var vol = _volGo.AddComponent<Volume>();
             vol.isGlobal = true;
             vol.priority = 10000f;
-            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            var profile = _volProfile = ScriptableObject.CreateInstance<VolumeProfile>();
             var sh = profile.Add<HDShadowSettings>(true);
             if (count > 0) sh.cascadeShadowSplitCount.Override(Mathf.Clamp(count, 1, 4));
             if (dist > 0) sh.maxShadowDistance.Override(dist);
@@ -182,7 +183,10 @@ namespace ShadowThrottle
         private static void RemoveVolume()
         {
             if (_volGo != null) Object.Destroy(_volGo);
+            // the profile is a separate ScriptableObject: destroying the GameObject does not free it
+            if (_volProfile != null) Object.Destroy(_volProfile);
             _volGo = null;
+            _volProfile = null;
         }
 
         private static void ApplyResolution(Sun s)
