@@ -93,7 +93,13 @@ namespace ShadowThrottle
         public static void Off()
         {
             if (CulledCount == 0) return;
-            foreach (var c in Casters) if (c.Culled && c.R != null) Uncull(c);
+            foreach (var c in Casters)
+            {
+                if (!c.Culled) continue;
+                if (c.R != null) Uncull(c);
+                // destroyed renderer: nothing to restore, but drop the flag so Scan() doesn't count it a second time
+                else c.Culled = false;
+            }
             CulledCount = 0;
         }
     }
