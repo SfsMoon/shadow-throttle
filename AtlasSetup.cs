@@ -44,6 +44,16 @@ namespace ShadowThrottle
                                $"max punctual res {MaxPunctualRes}, punctual levels [{string.Join(",", _levels)}]");
 
             if (wantedCachedAtlas <= 0 || sh.cachedPunctualLightShadowAtlas >= wantedCachedAtlas) return;
+            int maxTex = UnityEngine.SystemInfo.maxTextureSize;
+            if (maxTex > 0 && wantedCachedAtlas > maxTex)
+            {
+                Plugin.Log.LogWarning($"CachedAtlasSize {wantedCachedAtlas} is more than this GPU supports, using {maxTex}");
+                wantedCachedAtlas = maxTex;
+                if (sh.cachedPunctualLightShadowAtlas >= wantedCachedAtlas) return;
+            }
+            int bits = (int)sh.punctualLightShadowAtlas.shadowAtlasDepthBits;
+            Plugin.Log.LogInfo($"Cached shadow atlas {sh.cachedPunctualLightShadowAtlas} -> {wantedCachedAtlas} " +
+                               $"(~{(long)wantedCachedAtlas * wantedCachedAtlas * (bits > 0 ? bits : 32) / 8 / (1024 * 1024)} MB)");
 
             sh.cachedPunctualLightShadowAtlas = wantedCachedAtlas;
             s.hdShadowInitParams = sh;

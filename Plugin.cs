@@ -58,10 +58,6 @@ namespace ShadowThrottle
             //                         Quality              Balanced             Potato
             T Pick<T>(T q, T b, T po) => p == Preset.Quality ? q : p == Preset.Potato ? po : b;
 
-            // 64 MB of VRAM for a 4096 cache is nothing for any PC that runs this game
-            CachedAtlasSize.Value      = Pick(4096, 4096, 4096);
-            MaxCachedLights.Value      = Pick(128, 128, 128);
-
             NearDistance.Value         = Pick(12f, 12f, 6f);
             NearInterval.Value         = Pick(1, 2, 1);
             MidDistance.Value          = Pick(30f, 30f, 15f);
@@ -102,8 +98,10 @@ namespace ShadowThrottle
             Log = Logger;
             Enabled = Config.Bind("General", "Enabled", true, "Master switch (the in-game toggle key does not change this).");
             ToggleKey = Config.Bind("General", "ToggleKey", Key.F4, "Turn the mod on/off in game for A/B comparison. None = no key.");
-            MaxCachedLights = Config.Bind("General", "MaxCachedLights", 32,
-                "At most this many lights use cached shadows at once. The mod also learns the real atlas capacity and stays below it.");
+            // not part of the presets: how much memory to spend is the player's call, not a quality level
+            MaxCachedLights = Config.Bind("General", "MaxCachedLights", 128, new ConfigDescription(
+                "At most this many lights use cached shadows at once. The mod also learns the real atlas capacity and stays below it. " +
+                "Not changed by presets.", new AcceptableValueRange<int>(1, 1024)));
 
             NearDistance = Config.Bind("Schedule", "NearDistance", 12f, "Lights closer than this (m) to the camera are 'near'.");
             NearInterval = Config.Bind("Schedule", "NearInterval", 2, "Near lights refresh their shadow every N frames.");
@@ -114,8 +112,11 @@ namespace ShadowThrottle
                 "Lights that move (held flashlights, vehicle headlights...) are left vanilla (every frame).");
             RescanSeconds = Config.Bind("Advanced", "FullRescanSeconds", 30f,
                 "Safety full scan for lights (FindObjectsOfType costs a few ms). New lights are normally picked up instantly via OnEnable.");
-            CachedAtlasSize = Config.Bind("Atlas", "CachedAtlasSize", 2048,
-                "Size of HDRP's cached shadow atlas (more space = more lights can be cached). 2048 = 16 MB of VRAM. 0 = don't touch.");
+            CachedAtlasSize = Config.Bind("Atlas", "CachedAtlasSize", 4096, new ConfigDescription(
+                "Size of HDRP's cached shadow atlas: more space = more lamps can be cached at full resolution. " +
+                "Memory (32-bit shadows): 2048 = 16 MB, 4096 = 64 MB, 8192 = 256 MB, 16384 = 1 GB (integrated GPUs take it from RAM). " +
+                "Only raises the game's size, never lowers it. Applied when the game starts. Not changed by presets. 0 = don't touch.",
+                new AcceptableValueList<int>(0, 2048, 4096, 8192, 16384)));
             MidResolution = Config.Bind("Atlas", "MidResolution", 256,
                 "Max shadow resolution for cached 'mid' lights (smaller = more lights fit). 0 = keep the light's own.");
             FarResolution = Config.Bind("Atlas", "FarResolution", 128,
