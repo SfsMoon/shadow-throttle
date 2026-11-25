@@ -58,30 +58,41 @@ namespace ShadowThrottle
             //                         Quality              Balanced             Potato
             T Pick<T>(T q, T b, T po) => p == Preset.Quality ? q : p == Preset.Potato ? po : b;
 
-            NearDistance.Value         = Pick(12f, 12f, 6f);
-            NearInterval.Value         = Pick(1, 2, 1);
-            MidDistance.Value          = Pick(30f, 30f, 15f);
-            MidInterval.Value          = Pick(2, 4, 6);
-            FarInterval.Value          = Pick(4, 8, 20);
-            MidResolution.Value        = Pick(256, 256, 128);
-            FarResolution.Value        = Pick(256, 128, 64);
-            VeryFarDistance.Value      = Pick(80f, 60f, 40f);
-            VeryFarSeconds.Value       = Pick(0.5f, 1f, 1f);
+            // every changed entry would otherwise rewrite the cfg file on its own: write it once at the end
+            var cfg = PresetEntry.ConfigFile;
+            bool autoSave = cfg.SaveOnConfigSet;
+            cfg.SaveOnConfigSet = false;
+            try
+            {
+                NearDistance.Value         = Pick(12f, 12f, 6f);
+                NearInterval.Value         = Pick(1, 2, 1);
+                MidDistance.Value          = Pick(30f, 30f, 15f);
+                MidInterval.Value          = Pick(2, 4, 6);
+                FarInterval.Value          = Pick(4, 8, 20);
+                MidResolution.Value        = Pick(256, 256, 128);
+                FarResolution.Value        = Pick(256, 128, 64);
+                VeryFarDistance.Value      = Pick(80f, 60f, 40f);
+                VeryFarSeconds.Value       = Pick(0.5f, 1f, 1f);
 
-            // cascade count / distance stay the game's in every preset: fewer, bigger cascades measured no faster
-            SunCascadeIntervals.Value  = Pick("1,1,4,15", "1,2,8,30", "1,2,8,45");
-            SunCascadeMoveLimits.Value = Pick("0.3,1,4,10", "0.5,1.5,6,15", "0.5,1.5,6,15");
-            SunBoostCascades.Value     = Pick(2, 2, 2);
-            SunCascadeCount.Value      = Pick(0, 0, 0);
-            SunMaxShadowDistance.Value = Pick(0f, 0f, 0f);
-            SunCascadeSplits.Value     = Pick("", "", "");
-            SunResolution.Value        = Pick(0, 0, 512);   // no-op when LethalSponge already caps it lower
+                // cascade count / distance stay the game's in every preset: fewer, bigger cascades measured no faster
+                SunCascadeIntervals.Value  = Pick("1,1,4,15", "1,2,8,30", "1,2,8,45");
+                SunCascadeMoveLimits.Value = Pick("0.3,1,4,10", "0.5,1.5,6,15", "0.5,1.5,6,15");
+                SunBoostCascades.Value     = Pick(2, 2, 2);
+                SunCascadeCount.Value      = Pick(0, 0, 0);
+                SunMaxShadowDistance.Value = Pick(0f, 0f, 0f);
+                SunCascadeSplits.Value     = Pick("", "", "");
+                SunResolution.Value        = Pick(0, 0, 512);   // no-op when LethalSponge already caps it lower
 
-            SmallSize.Value            = Pick(2f, 2f, 2f);
-            SmallDistance.Value        = Pick(40f, 25f, 15f);
-            MediumSize.Value           = Pick(8f, 8f, 8f);
-            MediumDistance.Value       = Pick(80f, 50f, 30f);
-
+                SmallSize.Value            = Pick(2f, 2f, 2f);
+                SmallDistance.Value        = Pick(40f, 25f, 15f);
+                MediumSize.Value           = Pick(8f, 8f, 8f);
+                MediumDistance.Value       = Pick(80f, 50f, 30f);
+            }
+            finally
+            {
+                cfg.SaveOnConfigSet = autoSave;
+                if (autoSave) cfg.Save();
+            }
             Log.LogInfo($"Preset {p} applied");
         }
 
