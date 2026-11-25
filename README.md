@@ -13,7 +13,7 @@ In vanilla, every shadow is redrawn from scratch **every frame**. That covers ev
 | **Cached sun cascades** | Each sun cascade gets its own refresh rate. The nearest one (you and things around you) refreshes every frame, the farthest one (trees and buildings far away) about once a second. A cascade also refreshes early once the camera has moved far enough, every cascade refreshes every frame while the ship lands or takes off, and the near cascades refresh every frame while you move. |
 | **Distance shadow culling** | Small and medium objects stop casting shadows beyond a distance and get them back as you come closer. Big objects such as trees, buildings and rocks always keep their shadows. |
 | **Ship item lights** | Lights of scrap lying in the ship (lamps, the apparatus, glowing items) are switched off while the item is in the ship room. Flashlights are never touched. |
-| **Bigger shadow cache** | HDRP's cache for shadows is enlarged at startup so more lamps fit in it (4096², about 64 MB of VRAM). |
+| **Bigger shadow cache** | HDRP's cache for shadows is enlarged at startup so more lamps fit in it (4096² by default, about 64 MB of VRAM; up to 16384² if you have memory to spare, see below). |
 
 Nothing is ever simply switched off where you would notice it. If a shadow can't be cached, the mod leaves that lamp vanilla instead of letting its shadow disappear.
 
@@ -45,7 +45,20 @@ Set `Preset` in `BepInEx/config/shadowthrottle.cfg`, or change it in game with L
 | Mid / far lamp shadow resolution | 256 / 256 | 256 / 128 | 128 / 64 |
 | Very far lamps (time based) | > 80 m, 0.5 s | > 60 m, 1 s | > 40 m, 1 s |
 
-Choosing any preset other than **Custom** overwrites the detailed settings every time the game starts. Pick **Custom** to tune everything yourself. Every number above is a separate setting. The shadow cache size only changes after a restart.
+Choosing any preset other than **Custom** overwrites the detailed settings every time the game starts. Pick **Custom** to tune everything yourself. Every number above is a separate setting.
+
+## Shadow cache size
+
+`[Atlas] CachedAtlasSize` and `[General] MaxCachedLights` are **not** part of the presets, so you can change them with any preset. The cache size only changes after a restart.
+
+| `CachedAtlasSize` | Memory |
+|---|---|
+| 2048 | 16 MB |
+| **4096** (default) | 64 MB |
+| 8192 | 256 MB |
+| 16384 | 1 GB |
+
+Integrated GPUs take this memory from system RAM. A bigger cache only helps when it is actually full: with `[Advanced] DebugLog` on, look for `Cached shadow atlas full` in the log. If you raise the cache, consider raising `MaxCachedLights` (default 128) too.
 
 ## In game
 
@@ -81,7 +94,7 @@ Section `[Sun]`:
 
 ## How it works (for modders)
 
-- Lamps: `HDAdditionalLightData.shadowUpdateMode = OnDemand` plus a scheduler calling `RequestShadowMapRendering()`. Placement in the cached atlas is checked with `HDCachedShadowManager.LightHasBeenPlacedInAtlas`; a light that does not fit goes back to `EveryFrame`, and the mod learns how many lights fit. New lights are picked up with a Harmony postfix on `HDAdditionalLightData.OnEnable` instead of scene scans.
+- Lamps: `HDAdditionalLightData.shadowUpdateMode = OnDemand` plus a scheduler calling `RequestShadowMapRendering()`. Placement in the cached atlas is checked with `HDCachedShadowManager.LightHasBeenPlacedInAtlas`; a light that does not fit goes back to `EveryFrame`, and the mod learns how many lights fit. New lights are picked up with a Harmony postfix on `HDAdditionalLightData.OnEnable` instead of scene scans; directional lights found this way go to the sun cache.
 - Sun: `OnDemand` plus `RequestSubShadowMapRendering(cascade)` per cascade, with camera-motion, ship-motion and sun-rotation triggers.
 - Cached atlas size: `hdShadowInitParams.cachedPunctualLightShadowAtlas` is raised on the HDRP asset before the pipeline is created.
 - Casters: `Renderer.shadowCastingMode` is toggled by size and distance with 10% hysteresis, a slice of renderers per frame. If the game changes a renderer's mode itself, the game's value wins.

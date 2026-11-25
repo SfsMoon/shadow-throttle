@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Settings
+- `CachedAtlasSize` and `MaxCachedLights` are no longer overwritten by presets, so the shadow cache size can be chosen with any preset: 2048, 4096 (default), 8192 or 16384. The size is capped to what the GPU supports, and the log shows the memory it uses.
+- Renamed settings, so old values don't stick: `[Advanced] FullRescanSeconds` (30) → `PeriodicLightScanSeconds` (0 = off), `[Casters] RescanSeconds` (15) → `PeriodicScanSeconds` (60).
+- Applying a preset writes the config file once instead of once per changed setting.
+
+### Performance: no more periodic scene scans
+- Lamps: no full scan every 30 s; the OnEnable hook finds new lights, and a full scan runs on level load and when the mod is switched on.
+- Sun: found through the same hook instead of a scan every 5 s.
+- Distance culling: objects are looked for when a level loads, the interior has generated and the ship lands instead of every 15 s. Big objects (never culled) are left out of the per-frame check.
+- Ship item lights: items are registered when they spawn, and their lights are looked up once, instead of scanning all items every second.
+- All remaining scans use the faster unsorted `FindObjectsByType`.
+
+### Fixes
+- Objects could stay without shadows after toggling the mod off (F4) once objects they belonged to had been destroyed.
+- Nearby objects no longer stay shadowless for a moment after leaving the facility, teleporting or switching the spectated player.
+- A typo in `CascadeSplits`, `CascadeIntervals2` or `CascadeMoveLimits2` no longer switches the sun feature off; it is reported once in the log and ignored.
+- Sun cascade count is read from the game camera's own settings.
+- Fewer false "cached shadow atlas full" detections, and lamps whose shadow is faded out by distance no longer take cache slots.
+- The lamp scheduler handles errors like the other features instead of logging every frame.
+- Small leaks: lights queued while the mod was off, and the sun override profile on every rebuild.
+
 ## 0.6.0 — first public test release
 
 Everything below ships in this version. Earlier versions were only private builds, and their history is summarised under "Development history".
