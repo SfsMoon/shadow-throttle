@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -36,6 +37,7 @@ namespace ShadowThrottle
         private static Transform _ship;
         private static GameObject _volGo;
         private static string _volKey;
+        private static float[] _volSplits;
         private static float _nextScan;
         private static int[] _intervals = { 2, 4, 12, 40 };
         private static float[] _moveLimit = { 1f, 3f, 8f, 20f };
@@ -139,12 +141,19 @@ namespace ShadowThrottle
         {
             int count = Plugin.SunCascadeCount.Value;
             float dist = Plugin.SunMaxShadowDistance.Value;
-            string splits = Plugin.SunCascadeSplits.Value.Trim();
-            string key = $"{count}|{dist}|{splits}";
-            if (count <= 0 && dist <= 0 && splits.Length == 0) { RemoveVolume(); _volKey = key; return; }
-            if (_volGo != null && key == _volKey) return;
-            RemoveVolume();
-            _volKey = key;
+            string splitsText = (Plugin.SunCascadeSplits.Value ?? "").Trim();
+            string key = $"{count}|{dist}|{splitsText}";
+            if (key != _volKey)
+            {
+                // settings changed: parse once (a typo is reported once and ignored, never kills the sun feature)
+                _volKey = key;
+                _volSplits = null;
+                if (splitsText.Length > 0 && !TryParseList(splitsText, float.TryParse, out _volSplits))
+                    Plugin.Log.LogWarning($"[Sun] CascadeSplits '{splitsText}' is not a list of numbers like '0.05,0.15,0.4', ignored");
+                RemoveVolume();
+            }
+            if (count <= 0 && dist <= 0 && _volSplits == null) { RemoveVolume(); return; }
+            if (_volGo != null) return;
 
             _volGo = new GameObject("ShadowThrottle_ShadowSettings");
             Object.DontDestroyOnLoad(_volGo);
@@ -158,15 +167,15 @@ namespace ShadowThrottle
             var sh = profile.Add<HDShadowSettings>(true);
             if (count > 0) sh.cascadeShadowSplitCount.Override(Mathf.Clamp(count, 1, 4));
             if (dist > 0) sh.maxShadowDistance.Override(dist);
-            if (splits.Length > 0)
+            if (_volSplits != null)
             {
-                var v = splits.Split(',').Select(x => float.Parse(x.Trim(), System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                var v = _volSplits;
                 if (v.Length > 0) sh.cascadeShadowSplit0.Override(v[0]);
                 if (v.Length > 1) sh.cascadeShadowSplit1.Override(v[1]);
                 if (v.Length > 2) sh.cascadeShadowSplit2.Override(v[2]);
             }
             vol.sharedProfile = profile;
-            Plugin.Log.LogInfo($"Sun cascades override: count={(count > 0 ? count.ToString() : "game")}, distance={(dist > 0 ? dist.ToString() : "game")}, splits={(splits.Length > 0 ? splits : "game")}");
+            Plugin.Log.LogInfo($"Sun cascades override: count={(count > 0 ? count.ToString() : "game")}, distance={(dist > 0 ? dist.ToString() : "game")}, splits={(_volSplits != null ? splitsText : "game")}");
             foreach (var s in Suns) if (s.Cached && s.Hd != null) s.Hd.RequestShadowMapRendering();
         }
 
@@ -217,8 +226,28 @@ namespace ShadowThrottle
             string a = Plugin.SunCascadeIntervals.Value + "|" + Plugin.SunCascadeMoveLimits.Value;
             if (a == _parsed) return;
             _parsed = a;
-            try { _intervals = Plugin.SunCascadeIntervals.Value.Split(',').Select(x => Mathf.Max(1, int.Parse(x.Trim()))).ToArray(); } catch { }
-            try { _moveLimit = Plugin.SunCascadeMoveLimits.Value.Split(',').Select(x => float.Parse(x.Trim(), System.Globalization.CultureInfo.InvariantCulture)).ToArray(); } catch { }
+            if (TryParseList<int>(Plugin.SunCascadeIntervals.Value, int.TryParse, out var iv))
+                _intervals = iv.Select(x => Mathf.Max(1, x)).ToArray();
+            else Plugin.Log.LogWarning($"[Sun] CascadeIntervals2 '{Plugin.SunCascadeIntervals.Value}' is not a list of whole numbers like '1,2,8,30', keeping {string.Join(",", _intervals)}");
+            if (TryParseList<float>(Plugin.SunCascadeMoveLimits.Value, float.TryParse, out var ml))
+                _moveLimit = ml;
+            else Plugin.Log.LogWarning($"[Sun] CascadeMoveLimits2 '{Plugin.SunCascadeMoveLimits.Value}' is not a list of numbers like '0.5,1.5,6,15', keeping {string.Join(",", _moveLimit)}");
+        }
+
+        private delegate bool Parser<T>(string s, NumberStyles style, System.IFormatProvider provider, out T result);
+
+        /// <summary>Parses "a, b, c" with the invariant culture. False if empty or any item is not a number.</summary>
+        private static bool TryParseList<T>(string text, Parser<T> parse, out T[] result)
+        {
+            result = null;
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            var parts = text.Split(',');
+            var values = new T[parts.Length];
+            var style = typeof(T) == typeof(int) ? NumberStyles.Integer : NumberStyles.Float;
+            for (int i = 0; i < parts.Length; i++)
+                if (!parse(parts[i].Trim(), style, CultureInfo.InvariantCulture, out values[i])) return false;
+            result = values;
+            return true;
         }
     }
 }
