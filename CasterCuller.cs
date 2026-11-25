@@ -10,6 +10,8 @@ namespace ShadowThrottle
     /// shadow casting off beyond a distance and back on when you come closer. Big objects (trees, buildings, terrain)
     /// keep their shadows; the sun's far cascades refresh them rarely anyway (see SunCache).
     /// The list is walked a slice per frame, so the cost stays flat.
+    /// Finding new objects needs a scene scan (thousands of renderers), so it runs when objects actually appear:
+    /// level load, interior generated, ship landed, plus a rare fallback.
     /// </summary>
     internal static class CasterCuller
     {
@@ -20,7 +22,9 @@ namespace ShadowThrottle
         private static readonly List<Caster> Casters = new List<Caster>();
         private static readonly HashSet<Renderer> Known = new HashSet<Renderer>();
         private static int _cursor;
-        private static float _nextScan;
+        private static readonly List<float> ScanAt = new List<float> { 0f };   // pending scan times (first one: startup)
+        private static float _lastScan = float.NegativeInfinity;
+        private static bool _wasOff, _dungeonDone, _landed;
         private static Vector3 _lastCamPos;
         private static bool _hasCamPos;
         public static int CulledCount;
@@ -29,15 +33,40 @@ namespace ShadowThrottle
         // re-check everything at once, otherwise nearby objects would stay shadowless until the slice reaches them
         private const float CameraJump = 10f;
 
-        public static void Rescan() => _nextScan = 0;
+        /// <summary>Level loaded: scan now and again a bit later, objects keep spawning for a while.</summary>
+        public static void Rescan() => QueueScans(Time.unscaledTime, 0f, 5f, 15f);
+
+        private static void QueueScans(float now, params float[] delays)
+        {
+            foreach (var d in delays) ScanAt.Add(now + d);
+        }
+
+        /// <summary>The interior and its scrap / hazards appear after the level loads: scan when that happens.</summary>
+        private static void WatchRound(float now)
+        {
+            var rm = RoundManager.Instance;
+            bool dungeon = rm != null && rm.dungeonCompletedGenerating;
+            if (dungeon && !_dungeonDone) QueueScans(now, 0f, 3f, 10f);
+            _dungeonDone = dungeon;
+            var sor = StartOfRound.Instance;
+            bool landed = sor != null && sor.shipHasLanded;
+            if (landed && !_landed) QueueScans(now, 0f);
+            _landed = landed;
+        }
 
         public static void Tick(Camera cam)
         {
-            if (!On) { Off(); return; }
+            if (!On) { Off(); _wasOff = true; return; }
             float now = Time.unscaledTime;
-            if (now >= _nextScan)
+            if (_wasOff) { _wasOff = false; QueueScans(now, 0f); }   // objects that appeared while switched off
+            WatchRound(now);
+            bool due = false;
+            for (int i = ScanAt.Count - 1; i >= 0; i--)
+                if (ScanAt[i] <= now) { ScanAt.RemoveAt(i); due = true; }
+            float every = Plugin.CasterRescanSeconds.Value;
+            if (due || (every > 0f && now >= _lastScan + every))
             {
-                _nextScan = now + Plugin.CasterRescanSeconds.Value;
+                _lastScan = now;
                 Scan();
             }
             if (Casters.Count == 0) return;
@@ -88,7 +117,8 @@ namespace ShadowThrottle
                 return true;
             });
             Known.RemoveWhere(r => r == null);
-            foreach (var r in Object.FindObjectsOfType<Renderer>())
+            // FindObjectsByType without sorting is the cheap variant of FindObjectsOfType (which sorts by instance id)
+            foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
             {
                 if (Known.Contains(r)) continue;
                 if (!(r is MeshRenderer) && !(r is SkinnedMeshRenderer)) continue;

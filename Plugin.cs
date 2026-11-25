@@ -165,7 +165,10 @@ namespace ShadowThrottle
             MediumSize = Config.Bind("Casters", "MediumSize", 8f, "Objects smaller than this are 'medium'. Bigger ones always cast shadows.");
             MediumDistance = Config.Bind("Casters", "MediumDistance", 50f, "Medium objects stop casting shadows beyond this distance (m).");
             CastersPerFrame = Config.Bind("Casters", "CheckedPerFrame", 300, "How many objects are re-checked per frame (spreads the cost).");
-            CasterRescanSeconds = Config.Bind("Casters", "RescanSeconds", 15f, "How often new objects are picked up (also on every level load).");
+            // renamed from RescanSeconds (15): scans now follow level load / interior / landing, the timer is only a fallback
+            CasterRescanSeconds = Config.Bind("Casters", "PeriodicScanSeconds", 60f,
+                "Extra scan for new objects every N seconds (a scene scan, a few ms). New objects are already picked up when a " +
+                "level loads, the interior is generated and the ship lands. 0 = off.");
 
             PresetEntry = Config.Bind("General", "Preset", Preset.Balanced,
                 "Quality = gentle, Balanced = default, Potato = everything turned down for very weak PCs. " +
