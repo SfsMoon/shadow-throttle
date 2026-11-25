@@ -15,7 +15,7 @@
 - All remaining scans use the faster unsorted `FindObjectsByType`.
 
 ### Fixes
-- Objects could stay without shadows after toggling the mod off (F4) once objects they belonged to had been destroyed.
+- Objects could stay without shadows after toggling the mod off and on (F4) after leaving a moon.
 - Nearby objects no longer stay shadowless for a moment after leaving the facility, teleporting or switching the spectated player.
 - A typo in `CascadeSplits`, `CascadeIntervals2` or `CascadeMoveLimits2` no longer switches the sun feature off; it is reported once in the log and ignored.
 - Sun cascade count is read from the game camera's own settings.
