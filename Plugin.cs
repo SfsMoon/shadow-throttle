@@ -185,13 +185,22 @@ namespace ShadowThrottle
                 catch (System.Exception e) { Log.LogError($"Atlas setup failed: {e}"); }
             }
             // pick up lights the moment they are enabled instead of scanning the whole scene every few seconds
+            var harmony = new Harmony("shadowthrottle");
             var onEnable = AccessTools.Method(typeof(HDAdditionalLightData), "OnEnable");
             if (onEnable != null)
             {
-                try { new Harmony("shadowthrottle").Patch(onEnable, postfix: new HarmonyMethod(typeof(Scheduler), nameof(Scheduler.OnLightEnabled))); }
+                try { harmony.Patch(onEnable, postfix: new HarmonyMethod(typeof(Scheduler), nameof(Scheduler.OnLightEnabled))); }
                 catch (System.Exception e) { Log.LogWarning($"OnEnable hook failed, falling back to periodic scans: {e.Message}"); Scheduler.NoHook = true; }
             }
             else Scheduler.NoHook = true;
+            // same idea for scrap with lights (ShipItemLights)
+            var itemStart = AccessTools.Method(typeof(GrabbableObject), nameof(GrabbableObject.Start));
+            if (itemStart != null)
+            {
+                try { harmony.Patch(itemStart, postfix: new HarmonyMethod(typeof(ShipItemLights), nameof(ShipItemLights.OnItemStart))); }
+                catch (System.Exception e) { Log.LogWarning($"GrabbableObject.Start hook failed, falling back to periodic scans: {e.Message}"); ShipItemLights.NoHook = true; }
+            }
+            else ShipItemLights.NoHook = true;
 
             var go = new GameObject("ShadowThrottle");
             go.hideFlags = HideFlags.HideAndDontSave;
@@ -233,6 +242,7 @@ namespace ShadowThrottle
             {
                 _fullScanQueued = true;   // also finds the sun(s), see Register
                 CasterCuller.Rescan();
+                ShipItemLights.Rescan();
             };
         }
 
