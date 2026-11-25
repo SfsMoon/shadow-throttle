@@ -16,7 +16,7 @@ namespace ShadowThrottle
     /// light stays vanilla (EveryFrame) - off-screen ones cost nothing anyway since HDRP culls them.
     /// If a cached light does not fit in the atlas it is put back to vanilla, so shadows never disappear.
     /// </summary>
-    [BepInPlugin("shadowthrottle", "ShadowThrottle", "0.6.0")]
+    [BepInPlugin("shadowthrottle", "ShadowThrottle", "0.7.0")]
     public class Plugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
