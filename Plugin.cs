@@ -288,6 +288,18 @@ namespace ShadowThrottle
                 if (_cachedCount > 0) foreach (var e in _list) if (e.Cached) Demote(e, "lamps off");
                 return;
             }
+            try { TickLamps(cam, now); }
+            catch (System.Exception ex)
+            {
+                // same as the other features: log once and switch off; the next frame demotes every cached lamp
+                // back to vanilla, toggling the mod (F4) tries again
+                Plugin.Log.LogError($"Lamps: {ex}");
+                Plugin.LampsOn = false;
+            }
+        }
+
+        private void TickLamps(Camera cam, float now)
+        {
             GeometryUtility.CalculateFrustumPlanes(cam, _planes);
             Vector3 camPos = cam.transform.position;
 
