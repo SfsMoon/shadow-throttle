@@ -39,28 +39,25 @@ namespace ShadowThrottle
         private static VolumeProfile _volProfile;
         private static string _volKey;
         private static float[] _volSplits;
-        private static float _nextScan;
         private static int[] _intervals = { 2, 4, 12, 40 };
         private static float[] _moveLimit = { 1f, 3f, 8f, 20f };
         private static string _parsed;
 
-        public static void Rescan() => _nextScan = 0;
+        /// <summary>
+        /// Called by the lamp scheduler for every directional light it sees (OnEnable hook + full scan on level load),
+        /// so the sun needs no scene scan of its own.
+        /// </summary>
+        public static void Add(HDAdditionalLightData hd, Light l)
+        {
+            for (int i = 0; i < Suns.Count; i++) if (Suns[i].Hd == hd) return;
+            Suns.Add(new Sun { Hd = hd, L = l, Orig = hd.shadowUpdateMode });
+        }
 
         public static void Tick(Camera cam, int frame)
         {
             if (!On) { Off(); return; }
             float now = Time.unscaledTime;
-            if (now >= _nextScan)
-            {
-                _nextScan = now + 5f;
-                Suns.RemoveAll(s => s.Hd == null || s.L == null);
-                foreach (var l in Object.FindObjectsOfType<Light>())
-                {
-                    if (l.type != LightType.Directional || Suns.Any(s => s.L == l)) continue;
-                    var hd = l.GetComponent<HDAdditionalLightData>();
-                    if (hd != null) Suns.Add(new Sun { Hd = hd, L = l, Orig = hd.shadowUpdateMode });
-                }
-            }
+            for (int i = Suns.Count - 1; i >= 0; i--) if (Suns[i].Hd == null || Suns[i].L == null) Suns.RemoveAt(i);
             ParseConfig();
             ApplyVolume(cam);
 

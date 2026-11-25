@@ -228,8 +228,7 @@ namespace ShadowThrottle
         {
             UnityEngine.SceneManagement.SceneManager.sceneLoaded += (s, m) =>
             {
-                _fullScanQueued = true;
-                SunCache.Rescan();
+                _fullScanQueued = true;   // also finds the sun(s), see Register
                 CasterCuller.Rescan();
             };
         }
@@ -498,7 +497,9 @@ namespace ShadowThrottle
             {
                 if (_entries.ContainsKey(hd)) return;
                 var l = hd.GetComponent<Light>();
-                if (l == null || (l.type != LightType.Spot && l.type != LightType.Point)) return;
+                if (l == null) return;
+                if (l.type == LightType.Directional) { SunCache.Add(hd, l); return; } // before the mode check: SunCache keeps the original mode
+                if (l.type != LightType.Spot && l.type != LightType.Point) return;
                 // lights the game itself already caches are not ours: never touch them
                 if (hd.shadowUpdateMode != ShadowUpdateMode.EveryFrame) return;
                 var e = new Entry { Hd = hd, Light = l, T = hd.transform, Phase = _list.Count * 7 };
