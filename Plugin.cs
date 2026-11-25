@@ -196,7 +196,7 @@ namespace ShadowThrottle
             public float BlockedUntil;
             public float LastRequest;
             public bool Visible, WasVisible, Moving, Active;
-            public float Distance;
+            public float Distance, CamDistance;
             public bool Cached, Placed;
             public int UnplacedFrames;
             public bool OrigUseOverride; public int OrigOverride; public int OrigRes; public int CurRes;
@@ -315,7 +315,8 @@ namespace ShadowThrottle
                 Vector3 p = e.T.position;
                 float range = e.Light.range;
                 e.Visible = GeometryUtility.TestPlanesAABB(_planes, new Bounds(p, new Vector3(range, range, range) * 2f));
-                e.Distance = Mathf.Max(0f, Vector3.Distance(camPos, p) - range * 0.5f);
+                float camDist = e.CamDistance = Vector3.Distance(camPos, p);
+                e.Distance = Mathf.Max(0f, camDist - range * 0.5f);
                 if (e.Visible) e.LastVisible = now;
 
                 if (!e.Cached) { e.WasVisible = e.Visible; continue; }
@@ -326,7 +327,9 @@ namespace ShadowThrottle
                 if (!e.Placed)
                 {
                     if (HDCachedShadowManager.instance.LightHasBeenPlacedInAtlas(e.Hd)) e.Placed = true;
-                    else if (++e.UnplacedFrames > 20)
+                    // HDRP only places a light whose shadow it actually renders: off-screen or faded-out lights
+                    // never get placed, and that says nothing about free space in the atlas
+                    else if (e.Visible && ShadowRendered(e.Hd, camDist) && ++e.UnplacedFrames > 20)
                     {
                         // atlas is full: back to vanilla, remember how many fit
                         int placed = 0;
@@ -368,7 +371,8 @@ namespace ShadowThrottle
                     _candidates.Clear();
                     foreach (var e in _list)
                         if (e.Active && !e.Cached && e.Visible && !e.Moving && now >= e.BlockedUntil
-                            && e.Hd.shadowUpdateMode == ShadowUpdateMode.EveryFrame)
+                            && e.Hd.shadowUpdateMode == ShadowUpdateMode.EveryFrame
+                            && ShadowRendered(e.Hd, e.CamDistance)) // faded-out shadows cost nothing: don't waste a slot
                             _candidates.Add(e);
                     // far lights first: they gain the most (refreshed rarely) and stale shadows are least visible
                     _candidates.Sort((a, b) => b.Distance.CompareTo(a.Distance));
@@ -377,6 +381,10 @@ namespace ShadowThrottle
                 }
             }
         }
+
+        /// <summary>False when HDRP skips this light's shadow because the camera is past its (shadow) fade distance.</summary>
+        private static bool ShadowRendered(HDAdditionalLightData hd, float camDist)
+            => camDist < hd.shadowFadeDistance && camDist < hd.fadeDistance;
 
         private int WantedRes(Entry e, float near, float mid)
         {
