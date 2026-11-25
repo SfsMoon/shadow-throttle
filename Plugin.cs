@@ -124,7 +124,7 @@ namespace ShadowThrottle
             // renamed from FullRescanSeconds (30): the OnEnable hook made the periodic scan unnecessary, and a new key
             // makes sure old configs don't keep paying for it
             RescanSeconds = Config.Bind("Advanced", "PeriodicLightScanSeconds", 0f,
-                "Extra full scan for lights every N seconds (FindObjectsOfType, costs a few ms each time). 0 = off: new lights are " +
+                "Extra full scan for lights every N seconds (a scene scan, costs a few ms each time). 0 = off: new lights are " +
                 "picked up through OnEnable, and a full scan still runs on every level load and when the mod is switched on.");
             CachedAtlasSize = Config.Bind("Atlas", "CachedAtlasSize", 4096, new ConfigDescription(
                 "Size of HDRP's cached shadow atlas: more space = more lamps can be cached at full resolution. " +
@@ -502,7 +502,7 @@ namespace ShadowThrottle
                 foreach (var e in _list) _entries[e.Hd] = e;
             }
 
-            foreach (var hd in FindObjectsOfType<HDAdditionalLightData>()) Register(hd);
+            foreach (var hd in FindObjectsByType<HDAdditionalLightData>(FindObjectsSortMode.None)) Register(hd);
         }
 
         private void Register(HDAdditionalLightData hd)
