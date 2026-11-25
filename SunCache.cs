@@ -83,13 +83,7 @@ namespace ShadowThrottle
             bool shipBoost = now < _shipBoostUntil;
             int boostCascades = camMoving ? Plugin.SunBoostCascades.Value : 0;
 
-            int cascades = 4;
-            try
-            {
-                var settings = VolumeManager.instance.stack.GetComponent<HDShadowSettings>();
-                if (settings != null) cascades = Mathf.Clamp(settings.cascadeShadowSplitCount.value, 1, 4);
-            }
-            catch { }
+            int cascades = CascadeCount(cam);
 
             Vector3 camPos = cam.transform.position;
             foreach (var s in Suns)
@@ -129,6 +123,24 @@ namespace ShadowThrottle
                     s.LastPos[i] = camPos;
                 }
             }
+        }
+
+        /// <summary>
+        /// Cascade count the camera really renders with. HDRP 14 gives every camera its own volume stack, and the
+        /// global VolumeManager stack can belong to another camera (e.g. the ship's radar) or to none.
+        /// Falls back to the global stack, then to 4 (refreshing a cascade that doesn't exist is harmless,
+        /// never refreshing one that does is not).
+        /// </summary>
+        private static int CascadeCount(Camera cam)
+        {
+            try
+            {
+                var stack = HDCamera.GetOrCreate(cam).volumeStack ?? VolumeManager.instance.stack;
+                var settings = stack?.GetComponent<HDShadowSettings>();
+                if (settings != null) return Mathf.Clamp(settings.cascadeShadowSplitCount.value, 1, 4);
+            }
+            catch { }
+            return 4;
         }
 
         public static void Off()
